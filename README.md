@@ -191,9 +191,9 @@ UI behavior is encapsulated in typed page objects:
 
 API tests use Playwright's built-in `APIRequestContext`; accessibility tests use `@axe-core/playwright`.
 
-## Migration notes
+## Related project
 
-This branch replaces the former Cypress/JavaScript implementation with Playwright/TypeScript. Cypress configuration, support commands, fixtures, page objects, specs, dependencies, and Cypress-specific GitHub Actions commands have been removed.
+See the [Cypress portfolio](https://github.com/valentinomilanov/cypress-portfolio) for the JavaScript implementation.
 
 ## Author
 

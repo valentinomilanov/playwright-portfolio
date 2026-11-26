@@ -1,0 +1,87 @@
+name: Setup Practice Software Testing App
+description: Starts the local Practice Software Testing app and installs the Playwright project dependencies.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Clone and start app
+      shell: bash
+      run: |
+        git clone https://github.com/testsmith-io/practice-software-testing.git
+        cd practice-software-testing
+        docker compose up -d
+        sleep 30
+
+    - name: Install Composer dependencies
+      shell: bash
+      run: docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api composer install --no-dev --ignore-platform-reqs
+
+    - name: Configure Laravel environment
+      shell: bash
+      run: |
+        docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api sh -c "sed -i 's/DB_HOST=127.0.0.1/DB_HOST=mariadb/' .env"
+        docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api sh -c "sed -i 's/DB_DATABASE=laravel/DB_DATABASE=toolshop/' .env"
+        docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api sh -c "sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env"
+        docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api sh -c "sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' .env"
+        docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api php artisan key:generate
+
+    - name: Configure Laravel storage
+      shell: bash
+      run: |
+        docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api chmod -R 777 storage
+        docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api chmod -R 777 bootstrap/cache
+
+    - name: Migrate and seed database
+      shell: bash
+      run: docker compose -f practice-software-testing/docker-compose.yml exec --user root -T laravel-api php artisan migrate:fresh --seed
+
+    - name: Wait for API
+      shell: bash
+      run: |
+        ready=false
+        for i in {1..30}; do
+          if curl -fsS http://localhost:8091/categories/tree | grep -q '"id"'; then
+            ready=true
+            echo "API ready"
+            break
+          fi
+          sleep 10
+        done
+        if [ "$ready" != true ]; then
+          echo "API did not become ready"
+          exit 1
+        fi
+
+    - name: Wait for frontend
+      shell: bash
+      run: |
+        ready=false
+        for i in {1..30}; do
+          if curl -fsS http://localhost:4200 | grep -qi '<html'; then
+            ready=true
+            echo "Frontend ready"
+            break
+          fi
+          sleep 10
+        done
+        if [ "$ready" != true ]; then
+          echo "Frontend did not become ready"
+          exit 1
+        fi
+
+    - name: Install Node dependencies
+      shell: bash
+      run: npm install
+
+    - name: Type-check project
+      shell: bash
+      run: npm run typecheck
+
+    - name: Install Playwright Chromium
+      shell: bash
+      run: npx playwright install --with-deps chromium
