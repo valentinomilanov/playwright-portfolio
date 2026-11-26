@@ -1,0 +1,57 @@
+name: Playwright UI - Public Website
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_URL: https://practicesoftwaretesting.com
+      API_URL: https://api.practicesoftwaretesting.com
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type-check project
+        run: npm run typecheck
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run UI tests
+        run: npm run test:ui -- --workers=1
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ui-report
+          path: playwright-report/
+
+      - name: Upload JSONL logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ui-logs
+          path: playwright/logs/
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ui-results
+          path: test-results/
